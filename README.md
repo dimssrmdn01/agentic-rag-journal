@@ -36,8 +36,8 @@ Alih-alih langsung menjawab, agen AI akan melewati tahap penyaringan ketat:
 - **Ingesti Dokumen Otomatis:** Ekstraksi dan pemecahan (*chunking*) teks PDF langsung ke *vector database* ChromaDB.
 - **Anti-Halusinasi:** Pipeline *Retrieve ➔ Grade ➔ Generate* meminimalisir jawaban ngawur.
 - **Dual Interface:**
-  - 🖥️ **Streamlit (`app.py`):** Dashboard UI siap pakai lengkap dengan *Confidence Indicator* dan **Sitasi Dokumen Interaktif** (referensi `[1]`, `[2]` yang bisa diklik langsung ke sumber teks aslinya).
-  - 🌐 **FastAPI + HTML Custom (`api.py` + `index.html`):** Arsitektur *client-server* terpisah dengan *endpoint* REST API (`/upload` dan `/chat`). Sangat fleksibel untuk modifikasi UI/UX (Tailwind CSS).
+  -  **Streamlit (`app.py`):** Dashboard UI siap pakai lengkap dengan *Confidence Indicator* dan **Sitasi Dokumen Interaktif** (referensi `[1]`, `[2]` yang bisa diklik langsung ke sumber teks aslinya).
+  -  **FastAPI + HTML Custom (`api.py` + `index.html`):** Arsitektur *client-server* terpisah dengan *endpoint* REST API (`/upload` dan `/chat`). Sangat fleksibel untuk modifikasi UI/UX (Tailwind CSS).
 - **CLI Tools:** Termasuk skrip mandiri (`ingest.py`, `retrieve.py`, `agent.py`) untuk eksperimen atau *testing* tiap komponen secara terpisah.
 
 *(Catatan: Fitur sitasi interaktif dan indikator kepercayaan saat ini terintegrasi penuh di versi Streamlit).*
