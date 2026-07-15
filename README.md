@@ -103,7 +103,7 @@ GROQ_API_KEY=gsk_kunci_rahasia_kamu_di_sini
 
 Kamu dapat memilih salah satu dari dua antarmuka yang disediakan:
 
-**Opsi A — Menggunakan Streamlit (All-in-One)**
+**Opsi A - Menggunakan Streamlit (All-in-One)**
 
 ```bash
 streamlit run app.py
@@ -111,7 +111,7 @@ streamlit run app.py
 
 Aplikasi akan otomatis terbuka di `localhost:8501`. Kamu dapat mengunggah PDF langsung melalui sidebar.
 
-**Opsi B — Menggunakan FastAPI & HTML Custom (Client-Server)**
+**Opsi B - Menggunakan FastAPI & HTML Custom (Client-Server)**
 
 Jalankan server backend terlebih dahulu:
 
@@ -121,7 +121,7 @@ uvicorn api:app --reload
 
 Lalu buka file `index.html` secara langsung (klik dua kali) melalui File Explorer kamu.
 
-**Opsi C — Mode CLI (Untuk Testing/Eksperimen)**
+**Opsi C - Mode CLI (Untuk Testing/Eksperimen)**
 
 ```bash
 python retrieve.py   # Uji coba kecepatan dan akurasi retrieval
