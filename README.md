@@ -65,8 +65,8 @@ agentic-rag-journal/
  ├── ingest.py          # Script CLI untuk pipeline embedding ke ChromaDB
  ├── retrieve.py        # Script CLI untuk test akurasi pencarian
  ├── requirements.txt   # Daftar dependensi library
- ├── .env               # [TIDAK DI-COMMIT] Kunci rahasia Groq API
- └── chroma_db/         # [TIDAK DI-COMMIT] Folder database vektor lokal
+ ├── .env               # Kunci rahasia Groq API
+ └── chroma_db/         # Folder database vektor lokal
 ```
 
 ##  Panduan Instalasi
