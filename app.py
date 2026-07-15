@@ -23,7 +23,9 @@ from langchain_core.runnables import RunnableConfig
 # Load rahasia dari file .env
 load_dotenv()
 
-DB_PATH = "./chroma_db"
+if "db_path" not in st.session_state:
+    st.session_state.db_path = tempfile.mkdtemp()
+DB_PATH = st.session_state.db_path
 
 # ----------------------------------------------------------------------------
 # HANDLER STREAMING CUSTOM
@@ -406,11 +408,8 @@ with st.sidebar:
         with st.spinner("Memproses dokumen..."):
             st.cache_resource.clear()
             
-            if os.path.exists(DB_PATH):
-                try:
-                    shutil.rmtree(DB_PATH)
-                except Exception:
-                    pass
+            st.session_state.db_path = tempfile.mkdtemp()
+            DB_PATH = st.session_state.db_path
                     
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                 tmp.write(uploaded_file.getvalue())
@@ -450,9 +449,9 @@ st.markdown(
 # Agent setup
 # ----------------------------------------------------------------------------
 @st.cache_resource(show_spinner=False)
-def init_agent(model: str):
+def init_agent(model: str, db_path: str): 
     embedder = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
-    db = Chroma(persist_directory=DB_PATH, embedding_function=embedder)
+    db = Chroma(persist_directory=db_path, embedding_function=embedder) 
     retriever = db.as_retriever(search_kwargs={"k": top_k})
 
     # Mode streaming diaktifkan pada ChatGroq
@@ -460,7 +459,7 @@ def init_agent(model: str):
 
     class GraphState(TypedDict):
         question: str
-        chat_history: str  # <--- DITAMBAHKAN RUANG INGATAN
+        chat_history: str  
         documents: List[str]
         generation: str
         total_retrieved: int
@@ -603,7 +602,7 @@ if query:
         stream_container = st.empty()
         sources_container = st.empty()
         
-        app = init_agent(model_name)
+        app = init_agent(model_name, DB_PATH)
         
         # 2. Siapkan handler streaming dan arahkan outputnya ke stream_container
         stream_handler = StreamHandler(stream_container, status_indicator)
