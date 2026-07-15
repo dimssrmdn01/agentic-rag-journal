@@ -483,7 +483,7 @@ def init_agent(model: str, db_path: str):
                 filtered.append(doc)
         return {"documents": filtered, "relevant_count": len(filtered)}
 
-    # Tambahkan config ke parameter fungsi agar bisa menerima callback dari Streamlit
+    # Tambahkan config 
     def generate(state: dict, config: RunnableConfig):
         if not state["documents"]:
             return {
@@ -499,17 +499,16 @@ def init_agent(model: str, db_path: str):
             "Whenever you use information from a context chunk, cite it inline "
             "using its number in square brackets, e.g. [1] or [2][3]. "
             "Do not cite numbers that don't exist in the context.\n\n"
-            "Chat History:\n{chat_history}\n\n"  # <--- DITAMBAHKAN PROMPT INGATAN
+            "Chat History:\n{chat_history}\n\n"  
             "Context:\n{context}\n\nQuestion: {question}"
         )
         chain = prompt | llm | StrOutputParser()
         
-        # Oper config saat invoke untuk memicu streaming
         return {
             "generation": chain.invoke({
                 "question": state["question"], 
                 "context": numbered_context,
-                "chat_history": state.get("chat_history", "")  # <--- DITAMBAHKAN PARAMETER INGATAN
+                "chat_history": state.get("chat_history", "")  
             }, config=config),
             "documents": state["documents"],
         }
@@ -594,7 +593,6 @@ if query:
 
     with st.chat_message("assistant", avatar=AVATARS["assistant"]):
         
-        # 1. Siapkan wadah-wadah kosong untuk menampung elemen UI
         status_indicator = st.empty()
         status_indicator.markdown("⏳ *Mencari dan menyaring dokumen relevan...*")
         
@@ -604,26 +602,25 @@ if query:
         
         app = init_agent(model_name, DB_PATH)
         
-        # 2. Siapkan handler streaming dan arahkan outputnya ke stream_container
+        # Siapkan handler streaming 
         stream_handler = StreamHandler(stream_container, status_indicator)
         
-        # 3. Kumpulkan histori chat sebelumnya (ambil 4 chat terakhir biar AI ingat konteks)
+        # Kumpulkan histori chat sebelumnya 
         history_str = ""
-        # Gunakan slice [:-1] supaya pertanyaan yang baru diketik tidak masuk ke histori lama
         for m in st.session_state.messages[:-1][-4:]:
             role = "User" if m["role"] == "user" else "AI"
             history_str += f"{role}: {m['content']}\n"
         
-        # 4. Jalankan pipeline (Graph). AI akan memicu handler saat di tahap generate
+        # Jalankan pipeline (Graph)
         result = app.invoke(
             {
                 "question": query,
-                "chat_history": history_str  # <--- INGATAN DISUAPKAN KE AI DI SINI
+                "chat_history": history_str  
             },
             config={"callbacks": [stream_handler]}
         )
         
-        # 5. Bersihkan sisa indikator status jika masih ada
+        # Bersihkan sisa indikator 
         status_indicator.empty()
         
         answer = result["generation"]
@@ -634,7 +631,7 @@ if query:
         st.session_state.msg_counter += 1
         anchor_prefix = f"msg{st.session_state.msg_counter}"
 
-        # 6. Timpa wadah streaming dengan hasil akhir yang sudah dirapikan (pakai badge sitasi)
+        # Timpa wadah streaming 
         if sources:
             pill_container.markdown(render_confidence_pill(relevant_count, total_retrieved), unsafe_allow_html=True)
         
@@ -643,7 +640,7 @@ if query:
         if sources:
             sources_container.markdown(render_sources_block(sources, anchor_prefix), unsafe_allow_html=True)
 
-    # 7. Simpan ke memori sesi
+    # Simpan ke memori sesi
     st.session_state.messages.append({
         "role": "assistant",
         "content": answer,
