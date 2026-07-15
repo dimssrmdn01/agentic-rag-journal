@@ -1,9 +1,15 @@
 streamlit
+fastapi
+uvicorn[standard]
+python-multipart
+python-dotenv
 langchain
 langchain-groq
 langchain-huggingface
 langchain-chroma
+langchain-community
+langchain-text-splitters
+langgraph
 pypdf
 sentence-transformers
 torchvision
-langgraph
