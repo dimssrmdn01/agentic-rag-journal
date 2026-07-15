@@ -1,12 +1,21 @@
 import os
+import tempfile
+import re
+import shutil
 import streamlit as st
+from dotenv import load_dotenv
 from typing import TypedDict, List
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_text_splitters import RecursiveCharacterTextSplitter
 from langgraph.graph import StateGraph, END
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
+
+# Load rahasia dari file .env
+load_dotenv()
 
 DB_PATH = "./chroma_db"
 
@@ -332,10 +341,11 @@ st.markdown(
 with st.sidebar:
     st.markdown('<div class="sidebar-heading">Konfigurasi</div>', unsafe_allow_html=True)
 
-    default_key = st.secrets.get("GROQ_API_KEY", "") if hasattr(st, "secrets") else ""
+    default_key = os.getenv("GROQ_API_KEY", "")
+
     groq_api_key = st.text_input(
         "Groq API Key",
-        value=os.environ.get("GROQ_API_KEY", default_key),
+        value=default_key,
         type="password",
         help="Disimpan hanya untuk sesi ini, tidak ditulis ke file.",
     )
@@ -363,6 +373,43 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
+    # ----------------------------------------------------------------------------
+    # UI Upload 
+    # ----------------------------------------------------------------------------
+    st.markdown('<div class="sidebar-heading">Upload Jurnal</div>', unsafe_allow_html=True)
+    uploaded_file = st.file_uploader("Pilih PDF", type="pdf")
+
+   # Eksekusi Upload
+    if uploaded_file and st.button("Proses PDF", use_container_width=True):
+        with st.spinner("Memproses dokumen..."):
+            # 1. Hapus agen dari memori DULUAN biar file database dilepas
+            st.cache_resource.clear()
+            
+            # 2. Hapus ingatan database lama
+            if os.path.exists(DB_PATH):
+                try:
+                    shutil.rmtree(DB_PATH)
+                except Exception:
+                    pass # Kalau file masih nyangkut di OS, biarkan saja
+                    
+            # 3. Simpan sementara PDF baru
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
+                tmp.write(uploaded_file.getvalue())
+                tmp_path = tmp.name
+            
+            # 4. Load & Split
+            loader = PyPDFLoader(tmp_path)
+            chunks = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200).split_documents(loader.load())
+            
+            # 5. Embed & Simpan ke database baru
+            embedder = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
+            Chroma.from_documents(chunks, embedder, persist_directory=DB_PATH)
+            
+            # 6. Hapus file temp
+            os.remove(tmp_path)
+            
+            st.success("Jurnal berhasil dipelajari! Ingatan lama telah di-reset.")
+            st.rerun()
 # ----------------------------------------------------------------------------
 # Header
 # ----------------------------------------------------------------------------
@@ -414,7 +461,7 @@ def init_agent(model: str):
         filtered = []
         for doc in state["documents"]:
             score = chain.invoke({"question": state["question"], "doc": doc}).strip().lower()
-            if "yes" in score:
+            if "yes" in score or "ya" in score:
                 filtered.append(doc)
         return {"documents": filtered, "relevant_count": len(filtered)}
 
@@ -456,8 +503,6 @@ def init_agent(model: str):
 # ----------------------------------------------------------------------------
 # Render helpers — confidence pill & clickable citations
 # ----------------------------------------------------------------------------
-import re
-
 def render_confidence_pill(relevant: int, total: int) -> str:
     if total == 0:
         return ""
@@ -492,7 +537,7 @@ if "messages" not in st.session_state:
 if "msg_counter" not in st.session_state:
     st.session_state.msg_counter = 0
 
-AVATARS = {"user": "U", "assistant": "R"}
+AVATARS = {"user": "👤", "assistant": "🤖"}
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"], avatar=AVATARS[msg["role"]]):
