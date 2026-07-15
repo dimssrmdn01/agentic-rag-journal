@@ -1,8 +1,6 @@
 <div align="center">
-  <a href="https://git.io/typing-svg">
-    <img src="https://readme-typing-svg.demolab.com?font=Space+Grotesk&weight=700&size=36&duration=2500&pause=1000&color=7C9CFF&center=true&vCenter=true&width=600&lines=🤖+Agentic+RAG+Journal;Tanya-Jawab+Dokumen+Cerdas;Anti-Halusinasi+dengan+LangGraph" alt="Typing SVG" />
-  </a>
-  
+  <h1>🤖 Agentic RAG Journal</h1>
+
   <p>
     <a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.9+-blue.svg?logo=python&logoColor=white" alt="Python"></a>
     <a href="https://streamlit.io"><img src="https://img.shields.io/badge/Streamlit-FF4B4B.svg?logo=streamlit&logoColor=white" alt="Streamlit"></a>
