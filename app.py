@@ -14,10 +14,34 @@ from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
 
+# ----------------------------------------------------------------------------
+# IMPORT BARU UNTUK FITUR STREAMING
+# ----------------------------------------------------------------------------
+from langchain_core.callbacks.base import BaseCallbackHandler
+from langchain_core.runnables import RunnableConfig
+
 # Load rahasia dari file .env
 load_dotenv()
 
 DB_PATH = "./chroma_db"
+
+# ----------------------------------------------------------------------------
+# HANDLER STREAMING CUSTOM
+# ----------------------------------------------------------------------------
+class StreamHandler(BaseCallbackHandler):
+    def __init__(self, container, status_indicator):
+        self.container = container
+        self.status_indicator = status_indicator
+        self.text = ""
+
+    def on_llm_new_token(self, token: str, **kwargs) -> None:
+        # Hapus teks loading saat AI mulai mengetik kata pertama
+        if self.status_indicator:
+            self.status_indicator.empty()
+            self.status_indicator = None
+        
+        self.text += token
+        self.container.markdown(self.text + "▌") # Tambahkan kursor berkedip
 
 # ----------------------------------------------------------------------------
 # Page config
@@ -308,7 +332,7 @@ st.markdown(
         }
         .citation-badge:hover { background: var(--accent); color: #0D1117; }
 
-        /* Sources as native details/summary — auto-expands on anchor click */
+        /* Sources as native details/summary */
         details.source-block {
             border: 1px solid var(--border);
             border-radius: 10px;
@@ -373,43 +397,36 @@ with st.sidebar:
         st.session_state.messages = []
         st.rerun()
 
-    # ----------------------------------------------------------------------------
-    # UI Upload 
-    # ----------------------------------------------------------------------------
+    # UI Upload
     st.markdown('<div class="sidebar-heading">Upload Jurnal</div>', unsafe_allow_html=True)
     uploaded_file = st.file_uploader("Pilih PDF", type="pdf")
 
-   # Eksekusi Upload
+    # Eksekusi Upload
     if uploaded_file and st.button("Proses PDF", use_container_width=True):
         with st.spinner("Memproses dokumen..."):
-            # 1. Hapus agen dari memori DULUAN biar file database dilepas
             st.cache_resource.clear()
             
-            # 2. Hapus ingatan database lama
             if os.path.exists(DB_PATH):
                 try:
                     shutil.rmtree(DB_PATH)
                 except Exception:
-                    pass # Kalau file masih nyangkut di OS, biarkan saja
+                    pass
                     
-            # 3. Simpan sementara PDF baru
             with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as tmp:
                 tmp.write(uploaded_file.getvalue())
                 tmp_path = tmp.name
             
-            # 4. Load & Split
             loader = PyPDFLoader(tmp_path)
             chunks = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200).split_documents(loader.load())
             
-            # 5. Embed & Simpan ke database baru
             embedder = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
             Chroma.from_documents(chunks, embedder, persist_directory=DB_PATH)
             
-            # 6. Hapus file temp
             os.remove(tmp_path)
             
             st.success("Jurnal berhasil dipelajari! Ingatan lama telah di-reset.")
             st.rerun()
+
 # ----------------------------------------------------------------------------
 # Header
 # ----------------------------------------------------------------------------
@@ -438,10 +455,12 @@ def init_agent(model: str):
     db = Chroma(persist_directory=DB_PATH, embedding_function=embedder)
     retriever = db.as_retriever(search_kwargs={"k": top_k})
 
-    llm = ChatGroq(model=model, temperature=0)
+    # Mode streaming diaktifkan pada ChatGroq
+    llm = ChatGroq(model=model, temperature=0, streaming=True)
 
     class GraphState(TypedDict):
         question: str
+        chat_history: str  # <--- DITAMBAHKAN RUANG INGATAN
         documents: List[str]
         generation: str
         total_retrieved: int
@@ -465,7 +484,8 @@ def init_agent(model: str):
                 filtered.append(doc)
         return {"documents": filtered, "relevant_count": len(filtered)}
 
-    def generate(state):
+    # Tambahkan config ke parameter fungsi agar bisa menerima callback dari Streamlit
+    def generate(state: dict, config: RunnableConfig):
         if not state["documents"]:
             return {
                 "generation": "Tidak ditemukan informasi relevan di dokumen untuk pertanyaan ini.",
@@ -480,11 +500,18 @@ def init_agent(model: str):
             "Whenever you use information from a context chunk, cite it inline "
             "using its number in square brackets, e.g. [1] or [2][3]. "
             "Do not cite numbers that don't exist in the context.\n\n"
+            "Chat History:\n{chat_history}\n\n"  # <--- DITAMBAHKAN PROMPT INGATAN
             "Context:\n{context}\n\nQuestion: {question}"
         )
         chain = prompt | llm | StrOutputParser()
+        
+        # Oper config saat invoke untuk memicu streaming
         return {
-            "generation": chain.invoke({"question": state["question"], "context": numbered_context}),
+            "generation": chain.invoke({
+                "question": state["question"], 
+                "context": numbered_context,
+                "chat_history": state.get("chat_history", "")  # <--- DITAMBAHKAN PARAMETER INGATAN
+            }, config=config),
             "documents": state["documents"],
         }
 
@@ -501,7 +528,7 @@ def init_agent(model: str):
     return workflow.compile()
 
 # ----------------------------------------------------------------------------
-# Render helpers — confidence pill & clickable citations
+# Render helpers
 # ----------------------------------------------------------------------------
 def render_confidence_pill(relevant: int, total: int) -> str:
     if total == 0:
@@ -567,23 +594,57 @@ if query:
         st.markdown(query)
 
     with st.chat_message("assistant", avatar=AVATARS["assistant"]):
-        with st.spinner("Mencari dan menyaring dokumen relevan..."):
-            app = init_agent(model_name)
-            result = app.invoke({"question": query})
-            answer = result["generation"]
-            sources = result.get("documents", [])
-            total_retrieved = result.get("total_retrieved", len(sources))
-            relevant_count = result.get("relevant_count", len(sources))
+        
+        # 1. Siapkan wadah-wadah kosong untuk menampung elemen UI
+        status_indicator = st.empty()
+        status_indicator.markdown("⏳ *Mencari dan menyaring dokumen relevan...*")
+        
+        pill_container = st.empty()
+        stream_container = st.empty()
+        sources_container = st.empty()
+        
+        app = init_agent(model_name)
+        
+        # 2. Siapkan handler streaming dan arahkan outputnya ke stream_container
+        stream_handler = StreamHandler(stream_container, status_indicator)
+        
+        # 3. Kumpulkan histori chat sebelumnya (ambil 4 chat terakhir biar AI ingat konteks)
+        history_str = ""
+        # Gunakan slice [:-1] supaya pertanyaan yang baru diketik tidak masuk ke histori lama
+        for m in st.session_state.messages[:-1][-4:]:
+            role = "User" if m["role"] == "user" else "AI"
+            history_str += f"{role}: {m['content']}\n"
+        
+        # 4. Jalankan pipeline (Graph). AI akan memicu handler saat di tahap generate
+        result = app.invoke(
+            {
+                "question": query,
+                "chat_history": history_str  # <--- INGATAN DISUAPKAN KE AI DI SINI
+            },
+            config={"callbacks": [stream_handler]}
+        )
+        
+        # 5. Bersihkan sisa indikator status jika masih ada
+        status_indicator.empty()
+        
+        answer = result["generation"]
+        sources = result.get("documents", [])
+        total_retrieved = result.get("total_retrieved", len(sources))
+        relevant_count = result.get("relevant_count", len(sources))
 
         st.session_state.msg_counter += 1
         anchor_prefix = f"msg{st.session_state.msg_counter}"
 
+        # 6. Timpa wadah streaming dengan hasil akhir yang sudah dirapikan (pakai badge sitasi)
         if sources:
-            st.markdown(render_confidence_pill(relevant_count, total_retrieved), unsafe_allow_html=True)
-        st.markdown(linkify_citations(answer, anchor_prefix), unsafe_allow_html=True)
+            pill_container.markdown(render_confidence_pill(relevant_count, total_retrieved), unsafe_allow_html=True)
+        
+        stream_container.markdown(linkify_citations(answer, anchor_prefix), unsafe_allow_html=True)
+        
         if sources:
-            st.markdown(render_sources_block(sources, anchor_prefix), unsafe_allow_html=True)
+            sources_container.markdown(render_sources_block(sources, anchor_prefix), unsafe_allow_html=True)
 
+    # 7. Simpan ke memori sesi
     st.session_state.messages.append({
         "role": "assistant",
         "content": answer,
