@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Agentic RAG</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Plus+Jakarta+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg: #14111A;
+    --bg-soft: #1B1722;
+    --panel: #211C29;
+    --panel-2: #292233;
+    --hair: rgba(255,255,255,0.06);
+    --text: #F3F0EC;
+    --text-muted: #A79FB0;
+    --text-faint: #6E6779;
+    --gold: #D8B26B;
+    --violet: #9C8CE0;
+  }
+
+  *{ box-sizing:border-box; }
+
+  body{
+    font-family:'Plus Jakarta Sans', sans-serif;
+    background:
+      radial-gradient(900px 480px at 12% -8%, rgba(156,140,224,0.16), transparent 62%),
+      radial-gradient(700px 420px at 100% 0%, rgba(216,178,107,0.10), transparent 55%),
+      var(--bg);
+    color: var(--text);
+  }
+
+  .font-display{ font-family:'Fraunces', serif; font-optical-sizing:auto; }
+  .font-mono{ font-family:'IBM Plex Mono', monospace; }
+
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-thumb{ background:var(--panel-2); border-radius:8px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+
+  /* ---- Sidebar ---- */
+  .side-card{
+    background: var(--panel);
+    border-radius: 16px;
+    padding: 18px;
+  }
+
+  .dropzone{
+    border: 1.5px dashed rgba(255,255,255,0.14);
+    border-radius: 14px;
+    padding: 22px 16px;
+    text-align:center;
+    transition: border-color .18s ease, background .18s ease;
+    cursor:pointer;
+  }
+  .dropzone:hover, .dropzone.drag-over{
+    border-color: var(--violet);
+    background: rgba(156,140,224,0.06);
+  }
+
+  .status-pill{
+    display:inline-flex; align-items:center; gap:8px;
+    background: var(--panel);
+    border-radius: 999px;
+    padding: 7px 14px;
+    font-size: 12px;
+    color: var(--text-muted);
+  }
+  .status-dot{
+    width:7px; height:7px; border-radius:50%;
+    background:#5FD8A0;
+    box-shadow: 0 0 0 4px rgba(95,216,160,0.14);
+  }
+
+  .ghost-btn{
+    background: var(--panel-2);
+    border-radius: 12px;
+    padding: 11px 16px;
+    font-weight: 600;
+    font-size: 13.5px;
+    color: var(--text);
+    transition: background .18s ease, transform .18s ease;
+    display:flex; align-items:center; justify-content:center; gap:8px;
+  }
+  .ghost-btn:hover{ background:#332B3D; transform:translateY(-1px); }
+  .ghost-btn:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
+
+  /* ---- Welcome hero ---- */
+  .suggestion-chip{
+    background: var(--panel);
+    border-radius: 12px;
+    padding: 12px 16px;
+    font-size: 13.5px;
+    color: var(--text-muted);
+    transition: background .18s ease, color .18s ease, transform .18s ease;
+    text-align:left;
+  }
+  .suggestion-chip:hover{
+    background: var(--panel-2);
+    color: var(--text);
+    transform: translateY(-1px);
+  }
+
+  /* ---- Chat bubbles ---- */
+  .msg-row{ display:flex; gap:12px; align-items:flex-end; max-width: 720px; }
+  .msg-row.user{ margin-left:auto; flex-direction:row-reverse; }
+
+  .avatar{
+    width:30px; height:30px; border-radius:999px;
+    display:flex; align-items:center; justify-content:center;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px; font-weight:600;
+    flex-shrink:0;
+  }
+  .avatar.bot{ background: linear-gradient(140deg, var(--violet), #6C5CE0); color:#14111A; }
+  .avatar.user{ background: var(--panel-2); color: var(--text-muted); }
+
+  .bubble{
+    padding: 13px 17px;
+    font-size: 14.5px;
+    line-height: 1.65;
+    max-width: 100%;
+  }
+  .bubble.bot{
+    background: var(--panel);
+    border-radius: 4px 18px 18px 18px;
+    color: var(--text);
+  }
+  .bubble.user{
+    background: linear-gradient(135deg, rgba(156,140,224,0.22), rgba(156,140,224,0.10));
+    border-radius: 18px 4px 18px 18px;
+    color: var(--text);
+  }
+
+  /* typing indicator */
+  .typing-dots{ display:flex; gap:4px; padding:4px 2px; }
+  .typing-dots span{
+    width:6px; height:6px; border-radius:50%;
+    background: var(--text-faint);
+    animation: bounce 1.2s infinite ease-in-out;
+  }
+  .typing-dots span:nth-child(2){ animation-delay:.15s; }
+  .typing-dots span:nth-child(3){ animation-delay:.3s; }
+  @keyframes bounce{
+    0%,60%,100%{ transform:translateY(0); opacity:.5; }
+    30%{ transform:translateY(-4px); opacity:1; }
+  }
+
+  @media (prefers-reduced-motion: reduce){
+    .typing-dots span{ animation:none; opacity:.7; }
+  }
+
+  /* ---- Sources ---- */
+  .source-toggle{
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 11px;
+    color: var(--text-faint);
+    display:flex; align-items:center; gap:6px;
+    margin-top:10px;
+    cursor:pointer;
+    width:max-content;
+  }
+  .source-toggle:hover{ color: var(--gold); }
+  .source-panel{
+    display:none;
+    margin-top:10px;
+    display:flex; flex-direction:column; gap:8px;
+  }
+  .source-panel.open{ display:flex; }
+  .source-card{
+    background: var(--bg-soft);
+    border-radius: 10px;
+    padding: 11px 13px;
+    font-size: 12.5px;
+    color: var(--text-muted);
+    line-height:1.55;
+  }
+  .source-tag{
+    display:inline-block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size: 10px;
+    color: #14111A;
+    background: var(--gold);
+    padding: 2px 7px;
+    border-radius: 5px;
+    margin-bottom:6px;
+    font-weight:600;
+  }
+
+  /* ---- Input bar ---- */
+  .input-shell{
+    background: var(--panel);
+    border-radius: 18px;
+    padding: 6px 6px 6px 20px;
+    display:flex;
+    align-items:center;
+    gap:10px;
+    box-shadow: 0 12px 32px -12px rgba(0,0,0,0.5);
+  }
+  .input-shell input{
+    background: transparent;
+    border: none;
+    outline: none;
+    color: var(--text);
+    font-size: 14.5px;
+    flex: 1;
+    padding: 10px 0;
+  }
+  .input-shell input::placeholder{ color: var(--text-faint); }
+
+  .send-btn{
+    width:38px; height:38px; border-radius:12px;
+    background: linear-gradient(135deg, var(--violet), #6C5CE0);
+    display:flex; align-items:center; justify-content:center;
+    flex-shrink:0;
+    transition: transform .15s ease, opacity .15s ease;
+  }
+  .send-btn:hover{ transform: scale(1.05); }
+  .send-btn:disabled{ opacity:.5; }
+</style>
+</head>
+<body class="h-screen flex overflow-hidden">
+
+  <!-- Sidebar -->
+  <aside class="w-[300px] p-5 flex flex-col gap-6 overflow-y-auto">
+    <div class="flex items-center gap-3 px-1 pt-1">
+      <div class="w-9 h-9 rounded-xl flex items-center justify-center font-display font-semibold text-[15px]" style="background:linear-gradient(135deg, var(--gold), #B98F45); color:#14111A;">R</div>
+      <div>
+        <div class="font-display text-[17px] leading-none">Agentic RAG</div>
+        <div class="text-[11.5px] text-[color:var(--text-faint)] mt-1">Research Assistant</div>
+      </div>
+    </div>
+
+    <span class="status-pill w-max"><span class="status-dot"></span> API Terhubung</span>
+
+    <div class="side-card flex flex-col gap-3">
+      <div class="text-[12px] font-semibold text-[color:var(--text-muted)]">Knowledge Base</div>
+      <label id="dropzone" class="dropzone">
+        <input type="file" id="fileInput" accept=".pdf" class="hidden">
+        <div class="text-[13px] text-[color:var(--text-muted)] leading-relaxed">
+          Tarik file PDF ke sini,<br>atau <span class="text-[color:var(--violet)] font-medium">klik untuk memilih</span>
+        </div>
+      </label>
+      <div id="fileName" class="text-[12px] text-[color:var(--text-faint)] hidden truncate"></div>
+      <button id="uploadBtn" class="ghost-btn">
+        <span id="uploadLabel">Proses Dokumen</span>
+        <svg id="uploadSpinner" class="hidden animate-spin" width="14" height="14" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="3" opacity="0.25"/><path d="M12 2a10 10 0 0 1 10 10" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>
+      </button>
+      <p id="uploadStatus" class="text-[12px] text-center hidden" style="color:#5FD8A0;">Dokumen berhasil dipelajari.</p>
+    </div>
+
+    <div class="mt-auto text-[11.5px] text-[color:var(--text-faint)] leading-relaxed px-1">
+      Jawaban dihasilkan hanya berdasarkan dokumen yang kamu unggah, melalui tahap penyaringan relevansi otomatis.
+    </div>
+  </aside>
+
+  <!-- Main -->
+  <main class="flex-1 flex flex-col relative min-w-0">
+
+    <header class="px-8 py-5 flex items-center justify-between">
+      <div>
+        <h1 class="font-display text-[20px]">Tanya jurnalmu</h1>
+        <p class="text-[12.5px] text-[color:var(--text-faint)] mt-0.5">Jawaban akurat, langsung dari sumbernya.</p>
+      </div>
+    </header>
+
+    <!-- Chat scroll area -->
+    <div id="chatBox" class="flex-1 overflow-y-auto px-8 flex flex-col gap-5 pb-4">
+
+      <!-- Welcome hero -->
+      <div id="welcomeHero" class="flex-1 flex flex-col items-center justify-center text-center gap-6 py-10">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center font-display text-[22px]" style="background:linear-gradient(135deg, var(--violet), #6C5CE0); color:#14111A;">R</div>
+        <div>
+          <h2 class="font-display text-[28px] leading-tight">Ada yang ingin ditelusuri?</h2>
+          <p class="text-[14px] text-[color:var(--text-muted)] mt-2 max-w-[380px] mx-auto">Unggah dokumen di sidebar, lalu ajukan pertanyaan — atau coba salah satu contoh berikut.</p>
+        </div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-2.5 w-full max-w-[520px]">
+          <button class="suggestion-chip" data-q="Apa intisari dari dokumen ini?">Apa intisari dari dokumen ini?</button>
+          <button class="suggestion-chip" data-q="Jelaskan metodologi yang digunakan.">Jelaskan metodologi yang digunakan</button>
+          <button class="suggestion-chip" data-q="Apa temuan utama dan implikasinya?">Apa temuan utama dan implikasinya?</button>
+          <button class="suggestion-chip" data-q="Ringkas keterbatasan penelitian ini.">Ringkas keterbatasan penelitian ini</button>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Input -->
+    <div class="px-8 pb-7 pt-2">
+      <form id="chatForm" class="input-shell max-w-[720px] mx-auto">
+        <input type="text" id="chatInput" placeholder="Tanya sesuatu tentang dokumen kamu..." autocomplete="off" required>
+        <button type="submit" id="sendBtn" class="send-btn">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none"><path d="M4 12L20 4L13 20L11 13L4 12Z" stroke="#14111A" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/></svg>
+        </button>
+      </form>
+    </div>
+  </main>
+
+<script>
+  const API_BASE = "http://127.0.0.1:8000";
+
+  const fileInput = document.getElementById('fileInput');
+  const dropzone = document.getElementById('dropzone');
+  const fileName = document.getElementById('fileName');
+  const uploadBtn = document.getElementById('uploadBtn');
+  const uploadLabel = document.getElementById('uploadLabel');
+  const uploadSpinner = document.getElementById('uploadSpinner');
+  const uploadStatus = document.getElementById('uploadStatus');
+
+  const chatForm = document.getElementById('chatForm');
+  const chatInput = document.getElementById('chatInput');
+  const chatBox = document.getElementById('chatBox');
+  const welcomeHero = document.getElementById('welcomeHero');
+  const sendBtn = document.getElementById('sendBtn');
+
+  let selectedFile = null;
+
+  fileInput.addEventListener('change', () => {
+    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  });
+
+  ['dragover','dragenter'].forEach(evt =>
+    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag-over'); })
+  );
+  ['dragleave','drop'].forEach(evt =>
+    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('drag-over'); })
+  );
+  dropzone.addEventListener('drop', e => {
+    const f = e.dataTransfer.files[0];
+    if (f) setFile(f);
+  });
+
+  function setFile(f){
+    selectedFile = f;
+    fileName.textContent = f.name;
+    fileName.classList.remove('hidden');
+  }
+
+  uploadBtn.addEventListener('click', async () => {
+    if (!selectedFile) { fileName.textContent = "Pilih file PDF terlebih dahulu."; fileName.classList.remove('hidden'); return; }
+
+    const formData = new FormData();
+    formData.append("file", selectedFile);
+
+    uploadSpinner.classList.remove('hidden');
+    uploadLabel.textContent = "Memproses...";
+    uploadStatus.classList.add('hidden');
+    uploadBtn.disabled = true;
+
+    try {
+      const response = await fetch(`${API_BASE}/upload`, { method: "POST", body: formData });
+      const result = await response.json();
+      if (response.ok) {
+        uploadStatus.classList.remove('hidden');
+      } else {
+        fileName.textContent = "Error: " + (result.detail || "gagal memproses dokumen");
+        fileName.classList.remove('hidden');
+      }
+    } catch (err) {
+      fileName.textContent = "Gagal terhubung ke server. Pastikan backend berjalan.";
+      fileName.classList.remove('hidden');
+    } finally {
+      uploadSpinner.classList.add('hidden');
+      uploadLabel.textContent = "Proses Dokumen";
+      uploadBtn.disabled = false;
+    }
+  });
+
+  // Suggestion chips
+  document.querySelectorAll('.suggestion-chip').forEach(chip => {
+    chip.addEventListener('click', () => {
+      chatInput.value = chip.dataset.q;
+      chatForm.requestSubmit();
+    });
+  });
+
+  chatForm.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const question = chatInput.value.trim();
+    if (!question) return;
+
+    if (welcomeHero) welcomeHero.remove();
+
+    addMessage(question, 'user');
+    chatInput.value = '';
+    sendBtn.disabled = true;
+
+    const typingEl = addTyping();
+
+    try {
+      const response = await fetch(`${API_BASE}/chat`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ question })
+      });
+      const result = await response.json();
+      typingEl.remove();
+
+      if (response.ok) {
+        addMessage(result.answer, 'bot', result.sources || []);
+      } else {
+        addMessage("Maaf, terjadi kendala di server: " + (result.detail || "unknown error"), 'bot');
+      }
+    } catch (err) {
+      typingEl.remove();
+      addMessage("Tidak bisa terhubung ke server. Pastikan backend (uvicorn) sedang berjalan.", 'bot');
+    } finally {
+      sendBtn.disabled = false;
+    }
+  });
+
+  function addTyping(){
+    const row = document.createElement('div');
+    row.className = 'msg-row bot';
+    row.innerHTML = `
+      <div class="avatar bot">R</div>
+      <div class="bubble bot"><div class="typing-dots"><span></span><span></span><span></span></div></div>
+    `;
+    chatBox.appendChild(row);
+    chatBox.scrollTop = chatBox.scrollHeight;
+    return row;
+  }
+
+  function addMessage(text, sender, sources = []) {
+    const row = document.createElement('div');
+    row.className = `msg-row ${sender}`;
+
+    const avatar = document.createElement('div');
+    avatar.className = `avatar ${sender}`;
+    avatar.textContent = sender === 'user' ? 'U' : 'R';
+
+    const bubbleWrap = document.createElement('div');
+
+    const bubble = document.createElement('div');
+    bubble.className = `bubble ${sender}`;
+    bubble.textContent = text;
+    bubbleWrap.appendChild(bubble);
+
+    if (sources.length > 0) {
+      const toggle = document.createElement('div');
+      toggle.className = 'source-toggle';
+      toggle.innerHTML = `<span>▸</span> Sumber (${sources.length} dokumen)`;
+
+      const panel = document.createElement('div');
+      panel.className = 'source-panel';
+
+      sources.forEach((doc, i) => {
+        const card = document.createElement('div');
+        card.className = 'source-card';
+        card.innerHTML = `<span class="source-tag">DOK ${i + 1}</span><br>${doc.substring(0, 300)}...`;
+        panel.appendChild(card);
+      });
+
+      toggle.addEventListener('click', () => {
+        panel.classList.toggle('open');
+        toggle.querySelector('span').textContent = panel.classList.contains('open') ? '▾' : '▸';
+      });
+
+      bubbleWrap.appendChild(toggle);
+      bubbleWrap.appendChild(panel);
+    }
+
+    row.appendChild(avatar);
+    row.appendChild(bubbleWrap);
+    chatBox.appendChild(row);
+    chatBox.scrollTop = chatBox.scrollHeight;
+  }
+</script>
+</body>
+</html>
