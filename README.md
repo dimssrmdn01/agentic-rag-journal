@@ -27,9 +27,9 @@ Alih-alih langsung menjawab, agen AI akan melewati tahap penyaringan ketat:
 <br>
 💬 **Pertanyaan** ➔ 🔍 **Retrieve** ➔ ⚖️ **Relevance Grade** ➔ 📝 **Generate** ➔ ✨ **Jawaban**
 
-1. **🔍 Retrieve:** Mengambil `k` potongan dokumen yang paling mirip secara semantik dengan pertanyaan pengguna.
-2. **⚖️ Grade:** Setiap potongan dokumen dievaluasi ulang oleh LLM. Jika ada teks yang tidak relevan dengan pertanyaan, teks tersebut langsung **dibuang** sebelum sampai ke tahap pembuatan jawaban.
-3. **📝 Generate:** Menyusun jawaban akhir murni dari potongan dokumen yang lolos seleksi. Jika tidak ada yang lolos, sistem akan secara jujur menyatakan bahwa informasi tidak ditemukan.
+1. ** Retrieve:** Mengambil `k` potongan dokumen yang paling mirip secara semantik dengan pertanyaan pengguna.
+2. ** Grade:** Setiap potongan dokumen dievaluasi ulang oleh LLM. Jika ada teks yang tidak relevan dengan pertanyaan, teks tersebut langsung **dibuang** sebelum sampai ke tahap pembuatan jawaban.
+3. ** Generate:** Menyusun jawaban akhir murni dari potongan dokumen yang lolos seleksi. Jika tidak ada yang lolos, sistem akan secara jujur menyatakan bahwa informasi tidak ditemukan.
 
 ##  Fitur Utama
 
