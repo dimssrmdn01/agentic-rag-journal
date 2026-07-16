@@ -371,9 +371,9 @@ with st.sidebar:
 
     groq_api_key = st.text_input(
         "Groq API Key",
-        value=default_key,
+        value="",  
         type="password",
-        help="Disimpan hanya untuk sesi ini, tidak ditulis ke file.",
+        help="Masukkan API Key Groq kamu sendiri. Kosongkan jika sudah di-set oleh admin.",
     )
     if groq_api_key:
         os.environ["GROQ_API_KEY"] = groq_api_key
