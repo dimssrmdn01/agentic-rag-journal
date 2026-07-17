@@ -1,7 +1,7 @@
 import os
 import tempfile
 import re
-import shutil
+import base64
 import streamlit as st
 from dotenv import load_dotenv
 from typing import TypedDict, List
@@ -13,23 +13,83 @@ from langchain_huggingface import HuggingFaceEmbeddings
 from langchain_chroma import Chroma
 from langchain_core.prompts import ChatPromptTemplate
 from langchain_core.output_parsers import StrOutputParser
-
-# ----------------------------------------------------------------------------
-# IMPORT BARU UNTUK FITUR STREAMING
-# ----------------------------------------------------------------------------
 from langchain_core.callbacks.base import BaseCallbackHandler
 from langchain_core.runnables import RunnableConfig
 
-# Load rahasia dari file .env
+# ===========================================================
+# 1. INIT & ENV
+# ===========================================================
 load_dotenv()
 
 if "db_path" not in st.session_state:
     st.session_state.db_path = tempfile.mkdtemp()
 DB_PATH = st.session_state.db_path
 
-# ----------------------------------------------------------------------------
-# HANDLER STREAMING CUSTOM
-# ----------------------------------------------------------------------------
+# ===========================================================
+# 2. SVG ICON SYSTEM (CYBERPUNK THEME)
+# ===========================================================
+_ICON_PATHS = {
+    "cpu": (
+        '<rect x="4" y="4" width="16" height="16" rx="2" ry="2"/>'
+        '<rect x="9" y="9" width="6" height="6"/>'
+        '<line x1="9" y1="1" x2="9" y2="4"/><line x1="15" y1="1" x2="15" y2="4"/>'
+        '<line x1="9" y1="20" x2="9" y2="23"/><line x1="15" y1="20" x2="15" y2="23"/>'
+        '<line x1="20" y1="9" x2="23" y2="9"/><line x1="20" y1="14" x2="23" y2="14"/>'
+        '<line x1="1" y1="9" x2="4" y2="9"/><line x1="1" y1="14" x2="4" y2="14"/>', "stroke"
+    ),
+    "user-neon": (
+        '<path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/>', "stroke"
+    ),
+    "settings": (
+        '<circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06'
+        'a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33'
+        'l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 '
+        '0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51'
+        'V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 '
+        '0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"/>', "stroke"
+    ),
+    "info": (
+        '<circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/>', "stroke"
+    ),
+    "refresh": (
+        '<path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/>', "stroke"
+    ),
+    "document": (
+        '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/>'
+        '<line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><polyline points="10 9 9 9 8 9"/>', "stroke"
+    ),
+    "link": (
+        '<path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>'
+        '<path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>', "stroke"
+    )
+}
+
+def icon_svg(name: str, size: int = 18, color: str = "currentColor") -> str:
+    body, kind = _ICON_PATHS[name]
+    return (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 24 24" '
+        f'fill="none" stroke="{color}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{body}</svg>'
+    )
+
+def icon_data_uri(name: str, size: int = 64, color: str = "%2300F0FF") -> str:
+    body, kind = _ICON_PATHS[name]
+    color_raw = color.replace("%23", "#")
+    svg = (
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{size}" height="{size}" viewBox="0 0 24 24" '
+        f'fill="none" stroke="{color_raw}" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">{body}</svg>'
+    )
+    b64 = base64.b64encode(svg.encode("utf-8")).decode("utf-8")
+    return f"data:image/svg+xml;base64,{b64}"
+
+def icon_label(name: str, text: str, size: int = 15, color: str = "#00F0FF") -> str:
+    return f'<span class="icon-inline">{icon_svg(name, size, color)}<span>{text}</span></span>'
+
+ASSISTANT_AVATAR = icon_data_uri("cpu", size=64, color="%2300F0FF")
+USER_AVATAR = icon_data_uri("user-neon", size=64, color="%23FF007C")
+
+# ===========================================================
+# 3. STREAM HANDLER
+# ===========================================================
 class StreamHandler(BaseCallbackHandler):
     def __init__(self, container, status_indicator):
         self.container = container
@@ -37,377 +97,132 @@ class StreamHandler(BaseCallbackHandler):
         self.text = ""
 
     def on_llm_new_token(self, token: str, **kwargs) -> None:
-        # Hapus teks loading saat AI mulai mengetik kata pertama
         if self.status_indicator:
             self.status_indicator.empty()
             self.status_indicator = None
-        
         self.text += token
-        self.container.markdown(self.text + "▌") # Tambahkan kursor berkedip
+        self.container.markdown(self.text + "█") 
 
-# ----------------------------------------------------------------------------
-# Page config
-# ----------------------------------------------------------------------------
+# ===========================================================
+# 4. PAGE CONFIG & CYBERPUNK CSS
+# ===========================================================
 st.set_page_config(
-    page_title="Agentic RAG",
-    page_icon=None,
+    page_title="RAG CyberAgent",
     layout="centered",
     initial_sidebar_state="expanded",
 )
 
-# ----------------------------------------------------------------------------
-# Styling
-# ----------------------------------------------------------------------------
 st.markdown(
     """
     <style>
-        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=Space+Grotesk:wght@600;700&display=swap');
+        @import url('https://fonts.googleapis.com/css2?family=Orbitron:wght@500;700;900&family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@400;500&display=swap');
 
         :root {
-            --bg: #0D1117;
-            --bg-elevated: #151B24;
-            --panel: #1A2029;
-            --border: #262E3A;
-            --accent: #7C9CFF;
-            --accent-soft: rgba(124,156,255,0.12);
-            --amber: #E8A33D;
-            --text: #E6E9EF;
-            --text-muted: #8A93A3;
-            --text-faint: #5C6470;
+            --bg-base: #050814;
+            --bg-panel: rgba(10, 17, 40, 0.7);
+            --border-glow: #00F0FF;
+            --border-dim: #1A2B4C;
+            --accent-cyan: #00F0FF;
+            --accent-pink: #FF007C;
+            --accent-blue: #0047FF;
+            --text-main: #E0F7FA;
+            --text-muted: #8A9CA8;
         }
 
-        html, body, [class*="css"] {
-            font-family: 'Inter', sans-serif;
+        html, body, [class*="css"] { font-family: 'Inter', sans-serif; color: var(--text-main); }
+        h1, h2, h3, .cyber-title { font-family: 'Orbitron', sans-serif !important; }
+        
+        #MainMenu, footer { visibility: hidden; }
+        .stDeployButton { display: none; }
+
+        /* Cyberpunk Grid Background */
+        .stApp {
+            background-color: var(--bg-base);
+            background-image: 
+                linear-gradient(rgba(0, 240, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(0, 240, 255, 0.03) 1px, transparent 1px);
+            background-size: 30px 30px;
+            background-position: center center;
         }
 
-        #MainMenu, footer, header { visibility: hidden; }
+        .icon-inline { display: inline-flex; align-items: center; gap: 0.5rem; vertical-align: middle; font-family: 'IBM Plex Mono', monospace; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; letter-spacing: 1px; color: var(--accent-cyan); }
+        .icon-inline svg { flex-shrink: 0; display: block; filter: drop-shadow(0 0 3px var(--accent-cyan)); }
 
-        [data-testid="stAppViewContainer"] {
-            background:
-                radial-gradient(1100px 480px at 15% -10%, rgba(124,156,255,0.10), transparent 60%),
-                radial-gradient(900px 420px at 100% 0%, rgba(232,163,61,0.06), transparent 55%),
-                var(--bg);
-        }
+        /* App Header */
+        .cyber-header { display: flex; align-items: center; gap: 15px; margin-bottom: 5px; padding-bottom: 10px; border-bottom: 1px solid var(--border-dim); }
+        .cyber-logo { width: 40px; height: 40px; border-radius: 4px; background: rgba(0, 240, 255, 0.1); border: 1px solid var(--accent-cyan); display: flex; align-items: center; justify-content: center; box-shadow: 0 0 10px rgba(0, 240, 255, 0.2); }
+        .cyber-title { font-size: 1.8rem; font-weight: 700; color: #FFF; text-shadow: 0 0 10px var(--accent-cyan), 0 0 20px var(--accent-blue); letter-spacing: 2px; margin: 0; }
+        .cyber-subtitle { font-family: 'IBM Plex Mono', monospace; font-size: 0.8rem; color: var(--text-muted); margin: 8px 0 1.5rem 0; letter-spacing: 0.5px; }
 
-        [data-testid="stHeader"] { background: transparent; }
+        /* Status Indicators */
+        .status-pill { display: inline-flex; align-items: center; gap: 8px; font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; color: var(--accent-cyan); background: rgba(0, 240, 255, 0.05); border: 1px solid var(--accent-cyan); border-radius: 2px; padding: 4px 12px; margin-bottom: 1.5rem; box-shadow: inset 0 0 5px rgba(0,240,255,0.2); text-transform: uppercase; }
+        .status-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--accent-cyan); box-shadow: 0 0 8px var(--accent-cyan); animation: pulse 2s infinite; }
+        .status-dot.offline { background: var(--accent-pink); box-shadow: 0 0 8px var(--accent-pink); }
+        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.4; } 100% { opacity: 1; } }
 
-        .block-container {
-            padding-top: 2.2rem;
-            max-width: 760px;
-        }
+        /* Sidebar Styling */
+        [data-testid="stSidebar"] { background: var(--bg-panel); border-right: 1px solid var(--border-glow); box-shadow: 5px 0 20px rgba(0, 240, 255, 0.05); }
+        [data-testid="stSidebar"] * { color: var(--text-main); }
+        [data-testid="stTextInput"] input, [data-testid="stSelectbox"] div[data-baseweb="select"] > div { background: rgba(0,0,0,0.5) !important; border: 1px solid var(--border-dim) !important; color: var(--accent-cyan) !important; border-radius: 2px; font-family: 'IBM Plex Mono', monospace; }
+        [data-testid="stTextInput"] input:focus { border-color: var(--accent-cyan) !important; box-shadow: 0 0 8px rgba(0,240,255,0.3) !important; }
+        [data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] { background: var(--accent-cyan) !important; box-shadow: 0 0 10px var(--accent-cyan); }
+        
+        /* Buttons */
+        .stButton > button { border-radius: 2px; font-family: 'Orbitron', sans-serif; font-weight: 600; letter-spacing: 1px; text-transform: uppercase; border: 1px solid var(--accent-cyan); background: rgba(0, 240, 255, 0.05); color: var(--accent-cyan); transition: all 0.2s ease; }
+        .stButton > button:hover { background: var(--accent-cyan); color: #000; box-shadow: 0 0 15px var(--accent-cyan); }
 
-        .app-header {
-            display: flex;
-            align-items: center;
-            gap: 12px;
-            margin-bottom: 4px;
-        }
+        /* File Uploader */
+        [data-testid="stFileUploaderDropzone"] { background: rgba(0,0,0,0.4) !important; border: 1px dashed var(--accent-cyan) !important; border-radius: 2px !important; }
 
-        .app-mark {
-            width: 34px;
-            height: 34px;
-            border-radius: 9px;
-            background: linear-gradient(135deg, var(--accent), #4C6FE0);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'Space Grotesk', sans-serif;
-            font-weight: 700;
-            font-size: 0.95rem;
-            color: #0D1117;
-            flex-shrink: 0;
-        }
+        /* Chat Bubbles */
+        [data-testid="stChatMessage"] { background: transparent; border: none; padding: 0.5rem 0; gap: 15px; }
+        [data-testid="stChatMessageContent"] { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 2px; padding: 14px 18px; color: var(--text-main); font-size: 0.95rem; line-height: 1.6; border-left: 2px solid var(--accent-cyan); }
+        [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarUser"]) [data-testid="stChatMessageContent"] { border-left: 2px solid var(--accent-pink); }
 
-        .app-title {
-            font-family: 'Space Grotesk', sans-serif;
-            font-size: 1.55rem;
-            font-weight: 700;
-            color: var(--text);
-            letter-spacing: -0.01em;
-            line-height: 1.2;
-        }
+        /* Chat Input */
+        [data-testid="stChatInput"] { background: var(--bg-panel); border: 1px solid var(--border-dim); border-radius: 2px; }
+        [data-testid="stChatInput"] textarea { color: var(--accent-cyan) !important; font-family: 'IBM Plex Mono', monospace; }
+        [data-testid="stChatInput"] textarea:focus { box-shadow: inset 0 0 10px rgba(0,240,255,0.1); }
 
-        .app-subtitle {
-            font-size: 0.9rem;
-            color: var(--text-muted);
-            margin: 4px 0 1.4rem 46px;
-        }
+        /* Citations & Sources */
+        .confidence-pill { display: inline-flex; align-items: center; font-family: 'IBM Plex Mono', monospace; font-size: 0.7rem; padding: 4px 10px; border-radius: 2px; margin-bottom: 12px; border: 1px solid var(--border-dim); text-transform: uppercase; letter-spacing: 0.5px; }
+        .confidence-pill.high { color: var(--accent-cyan); background: rgba(0,240,255,0.05); border-color: var(--accent-cyan); }
+        .confidence-pill.mid { color: #FFAA00; background: rgba(255,170,0,0.05); border-color: #FFAA00; }
+        .confidence-pill.low { color: var(--accent-pink); background: rgba(255,0,124,0.05); border-color: var(--accent-pink); }
+        
+        .citation-badge { display: inline-flex; align-items: center; justify-content: center; font-family: 'IBM Plex Mono', monospace; font-size: 0.65rem; font-weight: 700; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 2px; background: rgba(0,240,255,0.1); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); text-decoration: none !important; margin: 0 2px; transform: translateY(-2px); transition: all .2s ease; }
+        .citation-badge:hover { background: var(--accent-cyan); color: #000; box-shadow: 0 0 8px var(--accent-cyan); }
 
-        .status-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 0.72rem;
-            color: var(--text-muted);
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-radius: 999px;
-            padding: 5px 13px;
-            margin-bottom: 1.8rem;
-        }
-
-        .status-dot {
-            width: 6px;
-            height: 6px;
-            border-radius: 50%;
-            background: #3DD68C;
-            box-shadow: 0 0 0 3px rgba(61,214,140,0.15);
-        }
-
-        .status-dot.offline {
-            background: #E36464;
-            box-shadow: 0 0 0 3px rgba(227,100,100,0.15);
-        }
-
-        /* Chat messages */
-        [data-testid="stChatMessage"] {
-            background: transparent;
-            border: none;
-            padding: 0.35rem 0;
-            gap: 12px;
-        }
-
-        [data-testid="stChatMessageAvatarUser"],
-        [data-testid="stChatMessageAvatarAssistant"] {
-            width: 30px;
-            height: 30px;
-            border-radius: 8px;
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 0.72rem;
-            font-weight: 600;
-        }
-
-        [data-testid="stChatMessageAvatarUser"] {
-            background: var(--panel) !important;
-            color: var(--text-muted) !important;
-            border: 1px solid var(--border);
-        }
-
-        [data-testid="stChatMessageAvatarAssistant"] {
-            background: linear-gradient(135deg, var(--accent), #4C6FE0) !important;
-            color: #0D1117 !important;
-        }
-
-        [data-testid="stChatMessageContent"] {
-            background: var(--bg-elevated);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-            padding: 12px 16px;
-            color: var(--text);
-            font-size: 0.94rem;
-            line-height: 1.6;
-        }
-
-        [data-testid="stChatMessage"]:has([data-testid="stChatMessageAvatarAssistant"]) [data-testid="stChatMessageContent"] {
-            border-left: 2px solid var(--accent);
-        }
-
-        /* Sidebar */
-        [data-testid="stSidebar"] {
-            background: var(--bg-elevated);
-            border-right: 1px solid var(--border);
-        }
-
-        [data-testid="stSidebar"] * { color: var(--text); }
-
-        [data-testid="stSidebar"] .sidebar-heading {
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 0.72rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 0.08em;
-            color: var(--text-faint);
-            margin: 1.6rem 0 0.6rem 0;
-        }
-
-        [data-testid="stSidebar"] .sidebar-note {
-            font-size: 0.82rem;
-            color: var(--text-muted) !important;
-            line-height: 1.55;
-        }
-
-        [data-testid="stSidebar"] [data-testid="stTextInput"] input,
-        [data-testid="stSidebar"] [data-testid="stSelectbox"] div[data-baseweb="select"] > div {
-            background: var(--panel) !important;
-            border: 1px solid var(--border) !important;
-            color: var(--text) !important;
-            border-radius: 8px;
-        }
-
-        [data-testid="stSlider"] [data-baseweb="slider"] div[role="slider"] {
-            background: var(--accent) !important;
-        }
-
-        .stButton > button {
-            border-radius: 8px;
-            font-weight: 500;
-            border: 1px solid var(--border);
-            background: var(--panel);
-            color: var(--text);
-        }
-
-        .stButton > button:hover {
-            border-color: var(--accent);
-            color: var(--accent);
-        }
-
-        /* Chat input */
-        [data-testid="stChatInput"] {
-            background: var(--bg-elevated);
-            border: 1px solid var(--border);
-            border-radius: 12px;
-        }
-
-        [data-testid="stChatInput"] textarea {
-            color: var(--text) !important;
-        }
-
-        /* Source cards */
-        .source-card {
-            background: var(--panel);
-            border: 1px solid var(--border);
-            border-left: 2px solid var(--amber);
-            border-radius: 8px;
-            padding: 12px 14px;
-            margin-bottom: 8px;
-            font-size: 0.82rem;
-            color: var(--text-muted);
-            line-height: 1.55;
-        }
-
-        .source-label {
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 0.66rem;
-            color: var(--amber);
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-            margin-bottom: 5px;
-        }
-
-        [data-testid="stExpander"] {
-            background: transparent;
-            border: 1px solid var(--border);
-            border-radius: 10px;
-        }
-
-        [data-testid="stExpander"] summary {
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 0.78rem;
-            color: var(--text-muted);
-        }
-
-        /* Confidence pill */
-        .confidence-pill {
-            display: inline-flex;
-            align-items: center;
-            gap: 7px;
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 0.72rem;
-            padding: 4px 11px;
-            border-radius: 999px;
-            margin-bottom: 10px;
-            border: 1px solid var(--border);
-        }
-        .confidence-pill.high { color: #3DD68C; background: rgba(61,214,140,0.08); }
-        .confidence-pill.mid { color: var(--amber); background: rgba(232,163,61,0.08); }
-        .confidence-pill.low { color: #E36464; background: rgba(227,100,100,0.08); }
-
-        /* Citation badges inside answer text */
-        .citation-badge {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 0.66rem;
-            font-weight: 600;
-            min-width: 16px;
-            height: 16px;
-            padding: 0 4px;
-            border-radius: 5px;
-            background: var(--accent-soft);
-            color: var(--accent);
-            text-decoration: none !important;
-            margin: 0 1px;
-            transform: translateY(-3px);
-            transition: background .15s ease, color .15s ease;
-        }
-        .citation-badge:hover { background: var(--accent); color: #0D1117; }
-
-        /* Sources as native details/summary */
-        details.source-block {
-            border: 1px solid var(--border);
-            border-radius: 10px;
-            padding: 2px 4px;
-            margin-top: 6px;
-        }
-        details.source-block summary {
-            font-family: 'IBM Plex Mono', monospace;
-            font-size: 0.78rem;
-            color: var(--text-muted);
-            padding: 10px 8px;
-            cursor: pointer;
-            list-style: revert;
-        }
-        details.source-block[open] summary { color: var(--text); }
-        details.source-block .source-card:target,
-        details.source-block .source-card.flash {
-            border-color: var(--accent);
-            background: var(--accent-soft);
-        }
-        .source-card { scroll-margin-top: 90px; }
+        details.source-block { border: 1px solid var(--border-dim); border-radius: 2px; padding: 4px; margin-top: 10px; background: rgba(0,0,0,0.3); }
+        details.source-block summary { font-family: 'IBM Plex Mono', monospace; font-size: 0.75rem; color: var(--accent-cyan); padding: 8px; cursor: pointer; text-transform: uppercase; letter-spacing: 1px; }
+        .source-card { background: var(--bg-base); border: 1px solid var(--border-dim); border-left: 2px solid var(--accent-cyan); border-radius: 2px; padding: 12px; margin-bottom: 8px; font-size: 0.82rem; color: var(--text-muted); font-family: 'IBM Plex Mono', monospace; }
+        .source-label { font-size: 0.65rem; color: var(--accent-cyan); text-transform: uppercase; margin-bottom: 6px; font-weight: 600; letter-spacing: 1px; }
+        details.source-block .source-card:target { border-color: var(--accent-pink); box-shadow: inset 0 0 10px rgba(255,0,124,0.1); }
     </style>
-    """,
-    unsafe_allow_html=True,
+    """, unsafe_allow_html=True
 )
 
-# ----------------------------------------------------------------------------
-# Sidebar — configuration
-# ----------------------------------------------------------------------------
+# ===========================================================
+# 5. SIDEBAR
+# ===========================================================
 with st.sidebar:
-    st.markdown('<div class="sidebar-heading">Konfigurasi</div>', unsafe_allow_html=True)
+    st.markdown(f'<div style="margin: 1.5rem 0 0.8rem 0;">{icon_label("settings", "Konfigurasi Sistem")}</div>', unsafe_allow_html=True)
 
     default_key = os.getenv("GROQ_API_KEY", "")
-
-    groq_api_key = st.text_input(
-        "Groq API Key",
-        value="",  
-        type="password",
-        help="Masukkan API Key Groq kamu sendiri. Kosongkan jika sudah di-set oleh admin.",
-    )
+    groq_api_key = st.text_input("API_KEY", value="", type="password", placeholder="gsk_...")
     if groq_api_key:
         os.environ["GROQ_API_KEY"] = groq_api_key
 
-    model_name = st.selectbox(
-        "Model",
-        ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"],
-        index=0,
-    )
+    model_name = st.selectbox("LLM_CORE", ["llama-3.1-8b-instant", "llama-3.3-70b-versatile"], index=0)
+    top_k = st.slider("K_RETRIEVAL", min_value=1, max_value=8, value=3)
 
-    top_k = st.slider("Jumlah dokumen diambil (k)", min_value=1, max_value=8, value=3)
-
-    st.markdown('<div class="sidebar-heading">Tentang</div>', unsafe_allow_html=True)
-    st.markdown(
-        '<div class="sidebar-note">Asisten riset yang menjawab pertanyaan berdasarkan '
-        'dokumen di knowledge base kamu. Jawaban difilter lewat tahap relevance grading '
-        'sebelum digenerate, supaya tidak mengarang di luar konteks.</div>',
-        unsafe_allow_html=True,
-    )
-
-    st.markdown('<div class="sidebar-heading">Sesi</div>', unsafe_allow_html=True)
-    if st.button("Bersihkan Riwayat", use_container_width=True):
-        st.session_state.messages = []
-        st.rerun()
-
-    # UI Upload
-    st.markdown('<div class="sidebar-heading">Upload Jurnal</div>', unsafe_allow_html=True)
-    uploaded_file = st.file_uploader("Pilih PDF", type="pdf")
-
-    # Eksekusi Upload
-    if uploaded_file and st.button("Proses PDF", use_container_width=True):
-        with st.spinner("Memproses dokumen..."):
+    st.markdown('<hr style="border-color: #1A2B4C;">', unsafe_allow_html=True)
+    st.markdown(f'<div style="margin-bottom: 0.8rem;">{icon_label("info", "Data Ingestion")}</div>', unsafe_allow_html=True)
+    
+    uploaded_file = st.file_uploader("Upload PDF", type="pdf", label_visibility="collapsed")
+    if uploaded_file and st.button("INISIALISASI DATA", use_container_width=True):
+        with st.spinner("MEMPROSES DOKUMEN..."):
             st.cache_resource.clear()
-            
             st.session_state.db_path = tempfile.mkdtemp()
             DB_PATH = st.session_state.db_path
                     
@@ -417,44 +232,45 @@ with st.sidebar:
             
             loader = PyPDFLoader(tmp_path)
             chunks = RecursiveCharacterTextSplitter(chunk_size=1000, chunk_overlap=200).split_documents(loader.load())
-            
             embedder = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
             Chroma.from_documents(chunks, embedder, persist_directory=DB_PATH)
             
             os.remove(tmp_path)
-            
-            st.success("Jurnal berhasil dipelajari! Ingatan lama telah di-reset.")
+            st.success("DATABASE TERBARUI!")
             st.rerun()
 
-# ----------------------------------------------------------------------------
-# Header
-# ----------------------------------------------------------------------------
+    st.markdown('<hr style="border-color: #1A2B4C;">', unsafe_allow_html=True)
+    if st.button("RESET MEMORY CACHE", use_container_width=True):
+        st.session_state.messages = []
+        st.rerun()
+
+# ===========================================================
+# 6. APP HEADER
+# ===========================================================
 st.markdown(
-    '<div class="app-header"><div class="app-mark">R</div><div class="app-title">Agentic RAG</div></div>',
-    unsafe_allow_html=True,
+    f'<div class="cyber-header">'
+    f'<div class="cyber-logo">{icon_svg("cpu", 24, "#00F0FF")}</div>'
+    f'<h1 class="cyber-title">AGENTIC RAG</h1>'
+    f'</div>', unsafe_allow_html=True
 )
-st.markdown(
-    '<div class="app-subtitle">Tanya jawab berbasis dokumen, dengan tahap penyaringan relevansi otomatis.</div>',
-    unsafe_allow_html=True,
-)
+st.markdown('<div class="cyber-subtitle">NEURAL KNOWLEDGE RETRIEVAL & FILTERING SYS_</div>', unsafe_allow_html=True)
 
 key_ready = bool(os.environ.get("GROQ_API_KEY"))
+dot_class = "" if key_ready else " offline"
+status_text = "SYS_ONLINE (GROQ LINKED)" if key_ready else "SYS_OFFLINE (AWAITING API KEY)"
 st.markdown(
-    f'<div class="status-pill"><span class="status-dot{"" if key_ready else " offline"}"></span>'
-    f'{"Terhubung ke Groq" if key_ready else "Masukkan API key di sidebar"}</div>',
-    unsafe_allow_html=True,
+    f'<div class="status-pill"><span class="status-dot{dot_class}"></span>{status_text}</div>', 
+    unsafe_allow_html=True
 )
 
-# ----------------------------------------------------------------------------
-# Agent setup
-# ----------------------------------------------------------------------------
+# ===========================================================
+# 7. AGENT SETUP (LANGGRAPH)
+# ===========================================================
 @st.cache_resource(show_spinner=False)
 def init_agent(model: str, db_path: str): 
     embedder = HuggingFaceEmbeddings(model_name="all-MiniLM-L6-v2")
     db = Chroma(persist_directory=db_path, embedding_function=embedder) 
     retriever = db.as_retriever(search_kwargs={"k": top_k})
-
-    # Mode streaming diaktifkan pada ChatGroq
     llm = ChatGroq(model=model, temperature=0, streaming=True)
 
     class GraphState(TypedDict):
@@ -471,11 +287,8 @@ def init_agent(model: str, db_path: str):
         return {"documents": contents, "total_retrieved": len(contents)}
 
     def grade(state):
-        prompt = ChatPromptTemplate.from_template(
-            "Is relevant? Answer 'yes' or 'no'.\nQuestion: {question}\nDoc: {doc}"
-        )
+        prompt = ChatPromptTemplate.from_template("Is relevant? Answer 'yes' or 'no'.\nQuestion: {question}\nDoc: {doc}")
         chain = prompt | llm | StrOutputParser()
-
         filtered = []
         for doc in state["documents"]:
             score = chain.invoke({"question": state["question"], "doc": doc}).strip().lower()
@@ -483,33 +296,17 @@ def init_agent(model: str, db_path: str):
                 filtered.append(doc)
         return {"documents": filtered, "relevant_count": len(filtered)}
 
-    # Tambahkan config 
     def generate(state: dict, config: RunnableConfig):
         if not state["documents"]:
-            return {
-                "generation": "Tidak ditemukan informasi relevan di dokumen untuk pertanyaan ini.",
-                "documents": [],
-            }
-
-        numbered_context = "\n\n".join(
-            f"[{i}] {doc}" for i, doc in enumerate(state["documents"], start=1)
-        )
+            return {"generation": "SYS_ERR: Data relevan tidak ditemukan dalam knowledge base.", "documents": []}
+        numbered_context = "\n\n".join(f"[{i}] {doc}" for i, doc in enumerate(state["documents"], start=1))
         prompt = ChatPromptTemplate.from_template(
-            "Answer ONLY based on the numbered context below. "
-            "Whenever you use information from a context chunk, cite it inline "
-            "using its number in square brackets, e.g. [1] or [2][3]. "
-            "Do not cite numbers that don't exist in the context.\n\n"
-            "Chat History:\n{chat_history}\n\n"  
-            "Context:\n{context}\n\nQuestion: {question}"
+            "Answer ONLY based on the numbered context below. Cite it inline using its number in square brackets, e.g. [1].\n\n"
+            "Chat History:\n{chat_history}\n\nContext:\n{context}\n\nQuestion: {question}"
         )
         chain = prompt | llm | StrOutputParser()
-        
         return {
-            "generation": chain.invoke({
-                "question": state["question"], 
-                "context": numbered_context,
-                "chat_history": state.get("chat_history", "")  
-            }, config=config),
+            "generation": chain.invoke({"question": state["question"], "context": numbered_context, "chat_history": state.get("chat_history", "")}, config=config),
             "documents": state["documents"],
         }
 
@@ -517,26 +314,20 @@ def init_agent(model: str, db_path: str):
     workflow.add_node("retrieve", retrieve)
     workflow.add_node("grade", grade)
     workflow.add_node("generate", generate)
-
     workflow.set_entry_point("retrieve")
     workflow.add_edge("retrieve", "grade")
     workflow.add_edge("grade", "generate")
     workflow.add_edge("generate", END)
-
     return workflow.compile()
 
-# ----------------------------------------------------------------------------
-# Render helpers
-# ----------------------------------------------------------------------------
+# ===========================================================
+# 8. RENDER HELPERS
+# ===========================================================
 def render_confidence_pill(relevant: int, total: int) -> str:
-    if total == 0:
-        return ""
+    if total == 0: return ""
     ratio = relevant / total
     tier = "high" if ratio >= 0.66 else ("mid" if ratio > 0 else "low")
-    return (
-        f'<div class="confidence-pill {tier}">'
-        f'{relevant} dari {total} dokumen yang diambil dinilai relevan</div>'
-    )
+    return f'<div class="confidence-pill {tier}">RELEVANCE FILTER: {relevant}/{total} BLOCKS ACCEPTED</div>'
 
 def linkify_citations(answer: str, anchor_prefix: str) -> str:
     def repl(match):
@@ -546,45 +337,39 @@ def linkify_citations(answer: str, anchor_prefix: str) -> str:
 
 def render_sources_block(sources: List[str], anchor_prefix: str) -> str:
     cards = "".join(
-        f'<div class="source-card" id="{anchor_prefix}-{i}">'
-        f'<div class="source-label">Dokumen {i}</div>{doc[:400]}...</div>'
+        f'<div class="source-card" id="{anchor_prefix}-{i}"><div class="source-label">{icon_svg("document", 12)} DATA_BLOCK_{i}</div>{doc[:400]}...</div>'
         for i, doc in enumerate(sources, start=1)
     )
-    return (
-        f'<details class="source-block"><summary>Sumber ({len(sources)} dokumen)</summary>{cards}</details>'
-    )
+    return f'<details class="source-block"><summary>{icon_svg("link", 14)} SOURCE_NODES ({len(sources)})</summary>{cards}</details>'
 
-# ----------------------------------------------------------------------------
-# Chat state
-# ----------------------------------------------------------------------------
+# ===========================================================
+# 9. CHAT HISTORY
+# ===========================================================
 if "messages" not in st.session_state:
     st.session_state.messages = []
 if "msg_counter" not in st.session_state:
     st.session_state.msg_counter = 0
 
-AVATARS = {"user": "👤", "assistant": "🤖"}
+AVATARS = {"user": USER_AVATAR, "assistant": ASSISTANT_AVATAR}
 
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"], avatar=AVATARS[msg["role"]]):
         if msg["role"] == "assistant" and msg.get("sources"):
             anchor_prefix = msg["id"]
-            st.markdown(
-                render_confidence_pill(msg.get("relevant_count", 0), msg.get("total_retrieved", 0)),
-                unsafe_allow_html=True,
-            )
+            st.markdown(render_confidence_pill(msg.get("relevant_count", 0), msg.get("total_retrieved", 0)), unsafe_allow_html=True)
             st.markdown(linkify_citations(msg["content"], anchor_prefix), unsafe_allow_html=True)
             st.markdown(render_sources_block(msg["sources"], anchor_prefix), unsafe_allow_html=True)
         else:
             st.markdown(msg["content"])
 
-# ----------------------------------------------------------------------------
-# Chat input
-# ----------------------------------------------------------------------------
-query = st.chat_input("Tanya sesuatu tentang dokumen kamu...")
+# ===========================================================
+# 10. CHAT INPUT
+# ===========================================================
+query = st.chat_input("TRANSMIT_QUERY...")
 
 if query:
     if not key_ready:
-        st.error("Masukkan Groq API key di sidebar terlebih dahulu.")
+        st.error("SYS_ERR: GROQ API KEY MISSING. INPUT REQUIRED IN CONSOLE.")
         st.stop()
 
     st.session_state.messages.append({"role": "user", "content": query})
@@ -592,35 +377,23 @@ if query:
         st.markdown(query)
 
     with st.chat_message("assistant", avatar=AVATARS["assistant"]):
-        
         status_indicator = st.empty()
-        status_indicator.markdown("⏳ *Mencari dan menyaring dokumen relevan...*")
+        status_indicator.markdown("`< SCANNING DATABASES... >`", unsafe_allow_html=True)
         
         pill_container = st.empty()
         stream_container = st.empty()
         sources_container = st.empty()
         
         app = init_agent(model_name, DB_PATH)
-        
-        # Siapkan handler streaming 
         stream_handler = StreamHandler(stream_container, status_indicator)
         
-        # Kumpulkan histori chat sebelumnya 
-        history_str = ""
-        for m in st.session_state.messages[:-1][-4:]:
-            role = "User" if m["role"] == "user" else "AI"
-            history_str += f"{role}: {m['content']}\n"
+        history_str = "".join([f"{'User' if m['role'] == 'user' else 'AI'}: {m['content']}\n" for m in st.session_state.messages[:-1][-4:]])
         
-        # Jalankan pipeline (Graph)
         result = app.invoke(
-            {
-                "question": query,
-                "chat_history": history_str  
-            },
+            {"question": query, "chat_history": history_str},
             config={"callbacks": [stream_handler]}
         )
         
-        # Bersihkan sisa indikator 
         status_indicator.empty()
         
         answer = result["generation"]
@@ -631,7 +404,6 @@ if query:
         st.session_state.msg_counter += 1
         anchor_prefix = f"msg{st.session_state.msg_counter}"
 
-        # Timpa wadah streaming 
         if sources:
             pill_container.markdown(render_confidence_pill(relevant_count, total_retrieved), unsafe_allow_html=True)
         
@@ -640,7 +412,6 @@ if query:
         if sources:
             sources_container.markdown(render_sources_block(sources, anchor_prefix), unsafe_allow_html=True)
 
-    # Simpan ke memori sesi
     st.session_state.messages.append({
         "role": "assistant",
         "content": answer,
