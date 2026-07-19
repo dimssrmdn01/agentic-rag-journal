@@ -23,9 +23,9 @@ Tersedia dalam dua arsitektur pilihan: **Dashboard Streamlit** (All-in-One) dan 
 
 Alih-alih langsung menjawab, agen AI akan melewati tahap penyaringan ketat:
 
-📄 **PDF** ➔ 🧩 **Ingest & Chunking** ➔ 🗄️ **Vector Store (ChromaDB)**
+📄 **PDF** ➔  **Ingest & Chunking** ➔  **Vector Store (ChromaDB)**
 <br>
-💬 **Pertanyaan** ➔ 🔍 **Retrieve** ➔ ⚖️ **Relevance Grade** ➔ 📝 **Generate** ➔ ✨ **Jawaban**
+ **Pertanyaan** ➔  **Retrieve** ➔  **Relevance Grade** ➔  **Generate** ➔  **Jawaban**
 
 1. ** Retrieve:** Mengambil `k` potongan dokumen yang paling mirip secara semantik dengan pertanyaan pengguna.
 2. ** Grade:** Setiap potongan dokumen dievaluasi ulang oleh LLM. Jika ada teks yang tidak relevan dengan pertanyaan, teks tersebut langsung **dibuang** sebelum sampai ke tahap pembuatan jawaban.
