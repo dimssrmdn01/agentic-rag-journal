@@ -19,11 +19,11 @@ Bukan sekadar sistem *retrieve-then-generate* biasa. **Agentic RAG Journal** men
 
 Tersedia dalam dua arsitektur pilihan: **Dashboard Streamlit** (All-in-One) dan **FastAPI + HTML** (Decoupled Architecture).
 
-##  Cara Kerja Pipeline
+## Cara Kerja Pipeline
 
 Alih-alih langsung menjawab, agen AI akan melewati tahap penyaringan ketat:
 
-📄 **PDF** ➔  **Ingest & Chunking** ➔  **Vector Store (ChromaDB)**
+ **PDF** ➔  **Ingest & Chunking** ➔  **Vector Store (ChromaDB)**
 <br>
  **Pertanyaan** ➔  **Retrieve** ➔  **Relevance Grade** ➔  **Generate** ➔  **Jawaban**
 
