@@ -19,7 +19,7 @@ Bukan sekadar sistem *retrieve-then-generate* biasa. **Agentic RAG Journal** men
 
 Tersedia dalam dua arsitektur pilihan: **Dashboard Streamlit** (All-in-One) dan **FastAPI + HTML** (Decoupled Architecture).
 
-## Cara Kerja Pipeline
+##Cara Kerja Pipeline
 
 Alih-alih langsung menjawab, agen AI akan melewati tahap penyaringan ketat:
 
@@ -31,7 +31,7 @@ Alih-alih langsung menjawab, agen AI akan melewati tahap penyaringan ketat:
 2. ** Grade:** Setiap potongan dokumen dievaluasi ulang oleh LLM. Jika ada teks yang tidak relevan dengan pertanyaan, teks tersebut langsung **dibuang** sebelum sampai ke tahap pembuatan jawaban.
 3. ** Generate:** Menyusun jawaban akhir murni dari potongan dokumen yang lolos seleksi. Jika tidak ada yang lolos, sistem akan secara jujur menyatakan bahwa informasi tidak ditemukan.
 
-##  Fitur Utama
+##Fitur Utama
 
 - **Ingesti Dokumen Otomatis:** Ekstraksi dan pemecahan (*chunking*) teks PDF langsung ke *vector database* ChromaDB.
 - **Anti-Halusinasi:** Pipeline *Retrieve ➔ Grade ➔ Generate* meminimalisir jawaban ngawur.
@@ -42,7 +42,7 @@ Alih-alih langsung menjawab, agen AI akan melewati tahap penyaringan ketat:
 
 *(Catatan: Fitur sitasi interaktif dan indikator kepercayaan saat ini terintegrasi penuh di versi Streamlit).*
 
-##  Tech Stack
+##Tech Stack
 
 | Kategori | Teknologi |
 | :--- | :--- |
@@ -54,7 +54,7 @@ Alih-alih langsung menjawab, agen AI akan melewati tahap penyaringan ketat:
 | **Frontend / UI** | Streamlit, HTML5, Tailwind CSS, Vanilla JS |
 | **Document Processing**| `langchain-community`, `pypdf` |
 
-##  Struktur Proyek
+##Struktur Proyek
 
 ```text
 agentic-rag-journal/
@@ -69,7 +69,7 @@ agentic-rag-journal/
  └── chroma_db/         # Folder database vektor lokal
 ```
 
-##  Panduan Instalasi
+##Panduan Instalasi
 
 **1. Clone Repositori**
 
@@ -99,7 +99,7 @@ Buat file bernama `.env` di dalam folder utama proyek dan masukkan API Key dari 
 GROQ_API_KEY=gsk_kunci_rahasia_kamu_di_sini
 ```
 
-##  Cara Menjalankan Aplikasi
+##Cara Menjalankan Aplikasi
 
 Kamu dapat memilih salah satu dari dua antarmuka yang disediakan:
 
@@ -128,13 +128,13 @@ python retrieve.py   # Uji coba kecepatan dan akurasi retrieval
 python agent.py      # Uji coba pipeline penuh di terminal
 ```
 
-##  Keterbatasan
+## Keterbatasan
 
 - Penomoran sitasi `[n]` sangat bergantung pada kepatuhan prompting dari model Llama-3. Terkadang model yang lebih kecil melewatkan urutan sitasi.
 - Unggahan dokumen baru akan ditambahkan (*append*) ke dalam vector database yang sama. Saat ini dioptimalkan untuk membedah satu topik/buku pada satu waktu.
 - Data tersimpan secara lokal tanpa mekanisme manajemen sesi (multi-user).
 
-## Roadmap Pengembangan
+##Roadmap Pengembangan
 
 - [ ] Sinkronisasi fitur confidence indicator & sitasi ke antarmuka FastAPI/HTML.
 - [ ] Implementasi Streaming Response (jawaban LLM mengalir kata per kata).
@@ -142,7 +142,7 @@ python agent.py      # Uji coba pipeline penuh di terminal
 - [ ] Integrasi database relasional untuk riwayat percakapan persisten.
 - [ ] Fitur ringkasan eksekutif instan saat dokumen pertama kali diunggah.
 
-##  Lisensi & Atribusi
+## Lisensi & Atribusi
 
 Proyek ini menggunakan Lisensi MIT. Kamu sangat dipersilakan untuk menggunakan, memodifikasi, dan mendistribusikannya secara bebas.
 
