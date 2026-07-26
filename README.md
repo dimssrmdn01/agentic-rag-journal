@@ -1,6 +1,12 @@
 <div align="center">
-  <h1>Agentic RAG Journal</h1>
+  <img src="https://readme-typing-svg.demolab.com?font=Space+Grotesk&weight=700&size=34&pause=1000&color=1C3C3C&center=true&vCenter=true&width=800&lines=Agentic+RAG+Journal;Self-Correcting+Retrieval+Pipeline;Powered+by+LangGraph+%26+Groq;Built+by+Dimas+Arya+Ramadhan" alt="Typing SVG" />
+</div>
 
+<div align="center">
+  <img src="https://capsule-render.vercel.app/api?type=waving&color=0:0f1f1a,100:1C3C3C&height=160&section=header&text=Agentic%20RAG%20Journal&fontSize=36&fontColor=ffffff&fontAlignY=38&desc=Retrieve%20%E2%86%92%20Grade%20%E2%86%92%20Generate&descAlignY=58&descSize=16" alt="Agentic RAG Journal Banner" width="100%">
+</div>
+
+<div align="center">
   <p>
     <a href="https://python.org"><img src="https://img.shields.io/badge/Python-3.9+-blue.svg?logo=python&logoColor=white" alt="Python"></a>
     <a href="https://streamlit.io"><img src="https://img.shields.io/badge/Streamlit-FF4B4B.svg?logo=streamlit&logoColor=white" alt="Streamlit"></a>
