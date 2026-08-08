@@ -14,7 +14,6 @@
     --bg-soft: #1B1722;
     --panel: #211C29;
     --panel-2: #292233;
-    --hair: rgba(255,255,255,0.06);
     --text: #F3F0EC;
     --text-muted: #A79FB0;
     --text-faint: #6E6779;
@@ -40,7 +39,6 @@
   ::-webkit-scrollbar-thumb{ background:var(--panel-2); border-radius:8px; }
   ::-webkit-scrollbar-track{ background:transparent; }
 
-  /* ---- Sidebar ---- */
   .side-card{
     background: var(--panel);
     border-radius: 16px;
@@ -87,7 +85,6 @@
   .ghost-btn:hover{ background:#332B3D; transform:translateY(-1px); }
   .ghost-btn:disabled{ opacity:.55; cursor:not-allowed; transform:none; }
 
-  /* ---- Welcome hero ---- */
   .suggestion-chip{
     background: var(--panel);
     border-radius: 12px;
@@ -103,7 +100,6 @@
     transform: translateY(-1px);
   }
 
-  /* ---- Chat bubbles ---- */
   .msg-row{ display:flex; gap:12px; align-items:flex-end; max-width: 720px; }
   .msg-row.user{ margin-left:auto; flex-direction:row-reverse; }
 
@@ -134,7 +130,6 @@
     color: var(--text);
   }
 
-  /* typing indicator */
   .typing-dots{ display:flex; gap:4px; padding:4px 2px; }
   .typing-dots span{
     width:6px; height:6px; border-radius:50%;
@@ -147,12 +142,10 @@
     0%,60%,100%{ transform:translateY(0); opacity:.5; }
     30%{ transform:translateY(-4px); opacity:1; }
   }
-
   @media (prefers-reduced-motion: reduce){
     .typing-dots span{ animation:none; opacity:.7; }
   }
 
-  /* ---- Sources ---- */
   .source-toggle{
     font-family:'IBM Plex Mono', monospace;
     font-size: 11px;
@@ -166,7 +159,7 @@
   .source-panel{
     display:none;
     margin-top:10px;
-    display:flex; flex-direction:column; gap:8px;
+    flex-direction:column; gap:8px;
   }
   .source-panel.open{ display:flex; }
   .source-card{
@@ -188,8 +181,18 @@
     margin-bottom:6px;
     font-weight:600;
   }
+  .neon-badge{
+    font-family: monospace; 
+    font-size: 0.8rem; 
+    color: #00ffcc; 
+    margin-bottom: 8px;
+  }
+  .neon-badge span{
+    background: rgba(0,255,204,0.2); 
+    padding: 2px 6px; 
+    border-radius: 4px;
+  }
 
-  /* ---- Input bar ---- */
   .input-shell{
     background: var(--panel);
     border-radius: 18px;
@@ -209,7 +212,6 @@
     padding: 10px 0;
   }
   .input-shell input::placeholder{ color: var(--text-faint); }
-
   .send-btn{
     width:38px; height:38px; border-radius:12px;
     background: linear-gradient(135deg, var(--violet), #6C5CE0);
@@ -222,8 +224,6 @@
 </style>
 </head>
 <body class="h-screen flex overflow-hidden">
-
-  <!-- Sidebar -->
   <aside class="w-[300px] p-5 flex flex-col gap-6 overflow-y-auto">
     <div class="flex items-center gap-3 px-1 pt-1">
       <div class="w-9 h-9 rounded-xl flex items-center justify-center font-display font-semibold text-[15px]" style="background:linear-gradient(135deg, var(--gold), #B98F45); color:#14111A;">R</div>
@@ -232,9 +232,7 @@
         <div class="text-[11.5px] text-[color:var(--text-faint)] mt-1">Research Assistant</div>
       </div>
     </div>
-
     <span class="status-pill w-max"><span class="status-dot"></span> API Terhubung</span>
-
     <div class="side-card flex flex-col gap-3">
       <div class="text-[12px] font-semibold text-[color:var(--text-muted)]">Knowledge Base</div>
       <label id="dropzone" class="dropzone">
@@ -250,26 +248,19 @@
       </button>
       <p id="uploadStatus" class="text-[12px] text-center hidden" style="color:#5FD8A0;">Dokumen berhasil dipelajari.</p>
     </div>
-
     <div class="mt-auto text-[11.5px] text-[color:var(--text-faint)] leading-relaxed px-1">
       Jawaban dihasilkan hanya berdasarkan dokumen yang kamu unggah, melalui tahap penyaringan relevansi otomatis.
     </div>
   </aside>
 
-  <!-- Main -->
   <main class="flex-1 flex flex-col relative min-w-0">
-
     <header class="px-8 py-5 flex items-center justify-between">
       <div>
         <h1 class="font-display text-[20px]">Tanya jurnalmu</h1>
         <p class="text-[12.5px] text-[color:var(--text-faint)] mt-0.5">Jawaban akurat, langsung dari sumbernya.</p>
       </div>
     </header>
-
-    <!-- Chat scroll area -->
     <div id="chatBox" class="flex-1 overflow-y-auto px-8 flex flex-col gap-5 pb-4">
-
-      <!-- Welcome hero -->
       <div id="welcomeHero" class="flex-1 flex flex-col items-center justify-center text-center gap-6 py-10">
         <div class="w-14 h-14 rounded-2xl flex items-center justify-center font-display text-[22px]" style="background:linear-gradient(135deg, var(--violet), #6C5CE0); color:#14111A;">R</div>
         <div>
@@ -283,10 +274,7 @@
           <button class="suggestion-chip" data-q="Ringkas keterbatasan penelitian ini.">Ringkas keterbatasan penelitian ini</button>
         </div>
       </div>
-
     </div>
-
-    <!-- Input -->
     <div class="px-8 pb-7 pt-2">
       <form id="chatForm" class="input-shell max-w-[720px] mx-auto">
         <input type="text" id="chatInput" placeholder="Tanya sesuatu tentang dokumen kamu..." autocomplete="off" required>
@@ -299,92 +287,95 @@
 
 <script>
   const API_BASE = "http://127.0.0.1:8000";
-
-  const fileInput = document.getElementById('fileInput');
-  const dropzone = document.getElementById('dropzone');
-  const fileName = document.getElementById('fileName');
-  const uploadBtn = document.getElementById('uploadBtn');
-  const uploadLabel = document.getElementById('uploadLabel');
-  const uploadSpinner = document.getElementById('uploadSpinner');
-  const uploadStatus = document.getElementById('uploadStatus');
-
-  const chatForm = document.getElementById('chatForm');
-  const chatInput = document.getElementById('chatInput');
-  const chatBox = document.getElementById('chatBox');
-  const welcomeHero = document.getElementById('welcomeHero');
-  const sendBtn = document.getElementById('sendBtn');
+  const elements = {
+    fileInput: document.getElementById('fileInput'),
+    dropzone: document.getElementById('dropzone'),
+    fileName: document.getElementById('fileName'),
+    uploadBtn: document.getElementById('uploadBtn'),
+    uploadLabel: document.getElementById('uploadLabel'),
+    uploadSpinner: document.getElementById('uploadSpinner'),
+    uploadStatus: document.getElementById('uploadStatus'),
+    chatForm: document.getElementById('chatForm'),
+    chatInput: document.getElementById('chatInput'),
+    chatBox: document.getElementById('chatBox'),
+    welcomeHero: document.getElementById('welcomeHero'),
+    sendBtn: document.getElementById('sendBtn')
+  };
 
   let selectedFile = null;
 
-  fileInput.addEventListener('change', () => {
-    if (fileInput.files[0]) setFile(fileInput.files[0]);
+  elements.fileInput.addEventListener('change', () => {
+    if (elements.fileInput.files[0]) setFile(elements.fileInput.files[0]);
   });
 
   ['dragover','dragenter'].forEach(evt =>
-    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.add('drag-over'); })
+    elements.dropzone.addEventListener(evt, e => { e.preventDefault(); elements.dropzone.classList.add('drag-over'); })
   );
   ['dragleave','drop'].forEach(evt =>
-    dropzone.addEventListener(evt, e => { e.preventDefault(); dropzone.classList.remove('drag-over'); })
+    elements.dropzone.addEventListener(evt, e => { e.preventDefault(); elements.dropzone.classList.remove('drag-over'); })
   );
-  dropzone.addEventListener('drop', e => {
+  elements.dropzone.addEventListener('drop', e => {
     const f = e.dataTransfer.files[0];
     if (f) setFile(f);
   });
 
   function setFile(f){
     selectedFile = f;
-    fileName.textContent = f.name;
-    fileName.classList.remove('hidden');
+    elements.fileName.textContent = f.name;
+    elements.fileName.classList.remove('hidden');
   }
 
-  uploadBtn.addEventListener('click', async () => {
-    if (!selectedFile) { fileName.textContent = "Pilih file PDF terlebih dahulu."; fileName.classList.remove('hidden'); return; }
+  elements.uploadBtn.addEventListener('click', async () => {
+    if (!selectedFile) {
+      elements.fileName.textContent = "Pilih file PDF terlebih dahulu."; 
+      elements.fileName.classList.remove('hidden'); 
+      return; 
+    }
 
     const formData = new FormData();
     formData.append("file", selectedFile);
 
-    uploadSpinner.classList.remove('hidden');
-    uploadLabel.textContent = "Memproses...";
-    uploadStatus.classList.add('hidden');
-    uploadBtn.disabled = true;
+    elements.uploadSpinner.classList.remove('hidden');
+    elements.uploadLabel.textContent = "Memproses...";
+    elements.uploadStatus.classList.add('hidden');
+    elements.uploadBtn.disabled = true;
 
     try {
       const response = await fetch(`${API_BASE}/upload`, { method: "POST", body: formData });
       const result = await response.json();
       if (response.ok) {
-        uploadStatus.classList.remove('hidden');
+        elements.uploadStatus.classList.remove('hidden');
       } else {
-        fileName.textContent = "Error: " + (result.detail || "gagal memproses dokumen");
-        fileName.classList.remove('hidden');
+        elements.fileName.textContent = "Error: " + (result.detail || "gagal memproses dokumen");
+        elements.fileName.classList.remove('hidden');
       }
     } catch (err) {
-      fileName.textContent = "Gagal terhubung ke server. Pastikan backend berjalan.";
-      fileName.classList.remove('hidden');
+      elements.fileName.textContent = "Gagal terhubung ke server.";
+      elements.fileName.classList.remove('hidden');
     } finally {
-      uploadSpinner.classList.add('hidden');
-      uploadLabel.textContent = "Proses Dokumen";
-      uploadBtn.disabled = false;
+      elements.uploadSpinner.classList.add('hidden');
+      elements.uploadLabel.textContent = "Proses Dokumen";
+      elements.uploadBtn.disabled = false;
     }
   });
 
-  // Suggestion chips
   document.querySelectorAll('.suggestion-chip').forEach(chip => {
     chip.addEventListener('click', () => {
-      chatInput.value = chip.dataset.q;
-      chatForm.requestSubmit();
+      elements.chatInput.value = chip.dataset.q;
+      elements.chatForm.requestSubmit();
     });
   });
 
-  chatForm.addEventListener('submit', async (e) => {
+  elements.chatForm.addEventListener('submit', async (e) => {
     e.preventDefault();
-    const question = chatInput.value.trim();
+    const question = elements.chatInput.value.trim();
     if (!question) return;
 
-    if (welcomeHero) welcomeHero.remove();
+    if (elements.welcomeHero) elements.welcomeHero.remove();
 
     addMessage(question, 'user');
-    chatInput.value = '';
-    sendBtn.disabled = true;
+    elements.chatInput.value = '';
+    elements.sendBtn.disabled = true;
 
     const typingEl = addTyping();
 
@@ -398,15 +389,15 @@
       typingEl.remove();
 
       if (response.ok) {
-        addMessage(result.answer, 'bot', result.sources || []);
+        addMessage(result.answer, 'bot', result.sources || [], result.confidence);
       } else {
-        addMessage("Maaf, terjadi kendala di server: " + (result.detail || "unknown error"), 'bot');
+        addMessage("Maaf, terjadi kendala di server: " + (result.detail || "error"), 'bot');
       }
     } catch (err) {
       typingEl.remove();
-      addMessage("Tidak bisa terhubung ke server. Pastikan backend (uvicorn) sedang berjalan.", 'bot');
+      addMessage("Tidak bisa terhubung ke server. Pastikan backend berjalan.", 'bot');
     } finally {
-      sendBtn.disabled = false;
+      elements.sendBtn.disabled = false;
     }
   });
 
@@ -417,12 +408,12 @@
       <div class="avatar bot">R</div>
       <div class="bubble bot"><div class="typing-dots"><span></span><span></span><span></span></div></div>
     `;
-    chatBox.appendChild(row);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    elements.chatBox.appendChild(row);
+    elements.chatBox.scrollTop = elements.chatBox.scrollHeight;
     return row;
   }
 
-  function addMessage(text, sender, sources = []) {
+  function addMessage(text, sender, sources = [], confidence = null) {
     const row = document.createElement('div');
     row.className = `msg-row ${sender}`;
 
@@ -431,7 +422,6 @@
     avatar.textContent = sender === 'user' ? 'U' : 'R';
 
     const bubbleWrap = document.createElement('div');
-
     const bubble = document.createElement('div');
     bubble.className = `bubble ${sender}`;
     bubble.textContent = text;
@@ -444,6 +434,10 @@
 
       const panel = document.createElement('div');
       panel.className = 'source-panel';
+      
+      if (confidence) {
+        panel.innerHTML += `<div class="neon-badge">[ SYS_EVAL: <span>${confidence}</span> ]</div>`;
+      }
 
       sources.forEach((doc, i) => {
         const card = document.createElement('div');
@@ -463,8 +457,8 @@
 
     row.appendChild(avatar);
     row.appendChild(bubbleWrap);
-    chatBox.appendChild(row);
-    chatBox.scrollTop = chatBox.scrollHeight;
+    elements.chatBox.appendChild(row);
+    elements.chatBox.scrollTop = elements.chatBox.scrollHeight;
   }
 </script>
 </body>

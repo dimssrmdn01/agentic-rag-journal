@@ -1,6 +1,7 @@
 import os
+from pydantic import BaseModel, Field
 from typing import TypedDict, List
-from dotenv import load_dotenv  # <-- Import dotenv
+from dotenv import load_dotenv  
 from langgraph.graph import StateGraph, END
 from langchain_groq import ChatGroq
 from langchain_huggingface import HuggingFaceEmbeddings
@@ -25,6 +26,11 @@ retriever = db.as_retriever(search_kwargs={"k": 3})
 
 #LLM
 llm = ChatGroq(model="llama-3.1-8b-instant", temperature=0)
+class GradeResult(BaseModel):
+    """Skor biner untuk cek relevansi dokumen."""
+    is_relevant: str = Field(
+        description="Jawab 'yes' jika dokumen relevan dengan pertanyaan, jika tidak jawab 'no'"
+    )
 
 # State
 class GraphState(TypedDict):
@@ -39,23 +45,27 @@ def retrieve(state):
     return {"documents": [d.page_content for d in docs]}
 
 def grade(state):
-    print("-> GRADE (Batch Processing)")
-    prompt = ChatPromptTemplate.from_template(
-        "Is this document relevant? Answer 'yes' or 'no' only.\nQuestion: {question}\nDocument: {doc}"
-    )
-    chain = prompt | llm | StrOutputParser()
+    print("-> GRADE (Batch + Pydantic Structured Output)")
     
-    # UPGRADE: BATCH PROCESSING
-    # Eksekusi semua dokumen secara paralel, bukan satu-satu lagi!
+    prompt = ChatPromptTemplate.from_template(
+        "Kamu adalah tim evaluator. Tugasmu menilai relevansi dokumen dengan pertanyaan.\n"
+        "Pertanyaan: {question}\n"
+        "Dokumen: {doc}\n"
+    )
+    
+    structured_llm = llm.with_structured_output(GradeResult)
+    chain = prompt | structured_llm
+
+
     if not state["documents"]:
         return {"documents": []}
         
     inputs = [{"question": state["question"], "doc": doc} for doc in state["documents"]]
-    scores = chain.batch(inputs)  # <-- Ngebut di sini!
+    scores = chain.batch(inputs) 
     
     filtered_docs = []
     for doc, score in zip(state["documents"], scores):
-        if "yes" in score.strip().lower():
+        if score.is_relevant.lower() == "yes":
             filtered_docs.append(doc)
             
     return {"documents": filtered_docs}
